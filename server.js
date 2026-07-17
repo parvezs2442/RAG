@@ -5,6 +5,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatGroq } from "@langchain/groq"
 import fs from "fs"
 import { PDFParse } from "pdf-parse"
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
 
 dotenv.config();
 
@@ -23,10 +24,21 @@ const upload = async() => {
     const pdfPath ="./knowledge.pdf"
     const buffer =fs.readFileSync(pdfPath)  //converts pdf data into raw binary data
     const pdfResult = new PDFParse({data:buffer}) //extracts the raw data from pdf
+    const result = await pdfResult.getText() //converts the raw binary data into plain text
+    const text = result.text;
 
-    const textData = await pdfResult.getText() //converts the raw binary data into plain text
+    // converting data into chunks
+    const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize:500,
+        chunkOverlap:100
+    }) 
+    const docs = await splitter.createDocuments([text])
 
+
+    console.log(docs)
 }
+upload();
+
 
 app.post("/ai", async(req, res) => {
 
