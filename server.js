@@ -8,6 +8,7 @@ import { PDFParse } from "pdf-parse"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { QdrantVectorStore } from "@langchain/qdrant"
+import { VectorStore } from "@langchain/core/vectorstores"
 
 dotenv.config();
 
@@ -49,16 +50,34 @@ const upload = async() => {
     
     //adding docs into vectorDB
     await vectorStore.addDocuments(docs)
-    
-}
 
+}
 
 
 app.post("/ai", async(req, res) => {
 
     const { input }  = req.body;
-    const response = await llm.invoke(input);
-    return res.status(200).json({"AI MSG => ": response.content })
+    const docs = await vectorStore.similaritySearch(input,5)
+    const context = docs.map( (d) => d.pageContent).join("/n")
+
+    const response = await llm.invoke([
+        {
+            role:"system",
+            content:`You are a RAG Assistant 
+            STRICT RULES:
+            - Answer only from context
+            - DO not use outside knowledge
+            - If no answer found then say: "I dont know from the uploaded pdf"
+            
+            Context:${context} `
+        },
+        {
+            role:"human",
+            content:input
+        }
+    ])
+    console.log(docs)
+    return res.status(200).json({"RAG MSG => ": response.content })
 })
 
 
