@@ -6,6 +6,8 @@ import { ChatGroq } from "@langchain/groq"
 import fs from "fs"
 import { PDFParse } from "pdf-parse"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { QdrantVectorStore } from "@langchain/qdrant"
 
 dotenv.config();
 
@@ -17,6 +19,17 @@ const llm = new ChatGroq({
     model: "openai/gpt-oss-120b",
     temperature: 0,
 })
+
+//embedding
+const embeddings = new GoogleGenerativeAIEmbeddings({
+  model: "gemini-embedding-001"
+});
+const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
+  url: process.env.QDRANT_URL,
+  collectionName: "Grocery-Store",
+});
+
+
 
 //Upload the pdf & extract text
 const upload = async() => {
@@ -33,11 +46,12 @@ const upload = async() => {
         chunkOverlap:100
     }) 
     const docs = await splitter.createDocuments([text])
-
-
-    console.log(docs)
+    
+    //adding docs into vectorDB
+    await vectorStore.addDocuments(docs)
+    
 }
-upload();
+
 
 
 app.post("/ai", async(req, res) => {
